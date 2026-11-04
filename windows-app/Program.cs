@@ -8,26 +8,27 @@ namespace SchoolSupplyPOS
         [STAThread]
         static void Main()
         {
-            Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            Store.Init();
+            Store.Init();   // create the products and demo sales
 
             while (true)
             {
-                bool manager;
-                using (var login = new LoginForm())
+                frmRole roleForm = new frmRole();
+                if (roleForm.ShowDialog() != DialogResult.OK)
                 {
-                    if (login.ShowDialog() != DialogResult.OK) break;   // Exit
-                    manager = login.IsManager;
+                    break;      // Exit was pressed
                 }
 
-                using (var main = new MainForm(manager))
+                frmMain mainForm = new frmMain(roleForm.IsManager);
+                mainForm.ShowDialog();
+
+                if (!mainForm.LoggedOut)
                 {
-                    main.ShowDialog();
-                    if (!main.LoggedOut) break;                          // window closed with X
+                    break;      // the window was closed with the X button
                 }
+                // Logout was pressed: loop back to the role screen
             }
         }
     }

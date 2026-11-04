@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace SchoolSupplyPOS
 {
-    // ===================== MODELS =====================
+    // ===================== CLASSES (data) =====================
     public class Product
     {
         public string Name;
@@ -15,72 +14,95 @@ namespace SchoolSupplyPOS
 
         public Product(string name, string category, double price, int stock)
         {
-            Name = name; Category = category; Price = price; Stock = stock;
+            Name = name;
+            Category = category;
+            Price = price;
+            Stock = stock;
         }
     }
 
+    // One row of a sale (an item and how many were bought)
     public class SaleLine
     {
-        public Product P;
-        public string Name;
+        public Product Item;
+        public string Name;     // copied at the time of sale
         public int Qty;
-        public double Price;
-        public double Total { get { return Qty * Price; } }
+        public double Price;    // copied at the time of sale
+
+        public double GetTotal()
+        {
+            return Qty * Price;
+        }
     }
 
+    // One transaction
     public class Sale
     {
         public int No;
         public DateTime Time;
         public List<SaleLine> Lines = new List<SaleLine>();
-        public double Total, Cash, Change;
+        public double Total;
+        public double Cash;
+        public double Change;
         public bool Voided;
         public string Cashier;
 
-        public int Items { get { return Lines.Sum(l => l.Qty); } }
+        public int ItemCount()
+        {
+            int n = 0;
+            foreach (SaleLine line in Lines)
+            {
+                n += line.Qty;
+            }
+            return n;
+        }
 
         public string Receipt()
         {
-            var sb = new StringBuilder();
+            string nl = Environment.NewLine;
+            StringBuilder sb = new StringBuilder();
             string bar = new string('=', 36);
-            sb.AppendLine(bar);
-            sb.AppendLine("        SCHOOL SUPPLIES POS");
-            sb.AppendLine("        Receipt #" + No.ToString("D4"));
-            sb.AppendLine("        " + Time.ToString("yyyy-MM-dd HH:mm"));
-            sb.AppendLine(bar);
-            foreach (var l in Lines)
+
+            sb.Append(bar + nl);
+            sb.Append("        SCHOOL SUPPLIES POS" + nl);
+            sb.Append("        Receipt #" + No.ToString("D4") + nl);
+            sb.Append("        " + Time.ToString("yyyy-MM-dd HH:mm") + nl);
+            sb.Append(bar + nl);
+
+            foreach (SaleLine line in Lines)
             {
-                string n = l.Name.Length > 14 ? l.Name.Substring(0, 14) : l.Name;
-                sb.AppendLine(string.Format("{0,-14}{1,3} x {2,7:F2} {3,8:F2}", n, l.Qty, l.Price, l.Total));
+                string n = line.Name;
+                if (n.Length > 14) n = n.Substring(0, 14);
+                sb.Append(string.Format("{0,-14}{1,3} x {2,7:F2} {3,8:F2}", n, line.Qty, line.Price, line.GetTotal()) + nl);
             }
-            sb.AppendLine(new string('-', 36));
-            sb.AppendLine(string.Format("TOTAL:   P{0:F2}", Total));
-            sb.AppendLine(string.Format("CASH:    P{0:F2}", Cash));
-            sb.AppendLine(string.Format("CHANGE:  P{0:F2}", Change));
-            sb.AppendLine("Cashier: " + Cashier);
-            sb.AppendLine(bar);
-            if (Voided) sb.AppendLine("        *** VOIDED ***");
-            else sb.AppendLine("     Thank you! Come again!");
+
+            sb.Append(new string('-', 36) + nl);
+            sb.Append(string.Format("TOTAL:   P{0:F2}", Total) + nl);
+            sb.Append(string.Format("CASH:    P{0:F2}", Cash) + nl);
+            sb.Append(string.Format("CHANGE:  P{0:F2}", Change) + nl);
+            sb.Append("Cashier: " + Cashier + nl);
+            sb.Append(bar + nl);
+            if (Voided) sb.Append("        *** VOIDED ***" + nl);
+            else sb.Append("     Thank you! Come again!" + nl);
             return sb.ToString();
         }
     }
 
+    // Used for the Top Selling Products table
     public class ProductStat
     {
-        public Product P;
-        public string Name;
+        public Product Item;
         public int Units;
         public double Revenue;
     }
 
-    // ===================== DATA + LOGIC =====================
+    // ===================== STORE (all data and rules) =====================
     public static class Store
     {
-        public static readonly List<Product> Products = new List<Product>();
-        public static readonly List<Sale> Sales = new List<Sale>();
+        public static List<Product> Products = new List<Product>();
+        public static List<Sale> Sales = new List<Sale>();
         public const int LowStockLevel = 10;
 
-        const int FirstHour = 8, LastHour = 20;
         static int nextNo = 1;
 
         public static void Init()
@@ -96,163 +118,305 @@ namespace SchoolSupplyPOS
             Products.Add(new Product("Scissors", "Tools", 45, 8));
             Products.Add(new Product("Glue", "Tools", 25, 30));
 
-            // DEMO DATA so the charts are not empty. Delete this line to start with no sales.
+            // DEMO DATA so the dashboard is not empty.
+            // Delete the next line to start with no sales.
             SeedDemoSales();
         }
 
         static void SeedDemoSales()
         {
-            var rnd = new Random(7);
+            Random rnd = new Random(7);
+
             for (int d = 6; d >= 0; d--)
             {
-                DateTime day = DateTime.Today.AddDays(-d);
-                int count = d == 0 ? rnd.Next(5, 9) : rnd.Next(9, 18);
+                int count;
+                if (d == 0) count = rnd.Next(5, 9);
+                else count = rnd.Next(9, 18);
+
                 for (int i = 0; i < count; i++)
                 {
-                    DateTime t = day.AddHours(rnd.Next(8, 18)).AddMinutes(rnd.Next(0, 60));
+                    DateTime t = DateTime.Today.AddDays(-d).AddHours(rnd.Next(8, 18)).AddMinutes(rnd.Next(0, 60));
                     if (t > DateTime.Now) t = DateTime.Now.AddMinutes(-rnd.Next(1, 40));
 
-                    var s = new Sale { Time = t, Cashier = "Staff" };
-                    int lines = rnd.Next(1, 5);
-                    var picked = new HashSet<int>();
-                    while (picked.Count < lines) picked.Add(rnd.Next(Products.Count));
+                    Sale s = new Sale();
+                    s.Time = t;
+                    s.Cashier = "Staff";
+
+                    int howMany = rnd.Next(1, 5);
+                    List<int> picked = new List<int>();
+                    while (picked.Count < howMany)
+                    {
+                        int idx = rnd.Next(Products.Count);
+                        if (!picked.Contains(idx)) picked.Add(idx);
+                    }
+
                     foreach (int idx in picked)
                     {
-                        var p = Products[idx];
-                        s.Lines.Add(new SaleLine { P = p, Name = p.Name, Qty = rnd.Next(1, 5), Price = p.Price });
+                        Product p = Products[idx];
+                        SaleLine line = new SaleLine();
+                        line.Item = p;
+                        line.Name = p.Name;
+                        line.Qty = rnd.Next(1, 5);
+                        line.Price = p.Price;
+                        s.Lines.Add(line);
+                        s.Total += line.GetTotal();
                     }
-                    s.Total = s.Lines.Sum(l => l.Total);
+
                     s.Cash = Math.Ceiling(s.Total / 50) * 50;
                     s.Change = s.Cash - s.Total;
                     Sales.Add(s);
                 }
             }
-            Sales.Sort((a, b) => a.Time.CompareTo(b.Time));
-            for (int i = 0; i < Sales.Count; i++) Sales[i].No = i + 1;
+
+            Sales.Sort(CompareByTime);
+            for (int i = 0; i < Sales.Count; i++)
+            {
+                Sales[i].No = i + 1;
+            }
             nextNo = Sales.Count + 1;
         }
 
-        public static IEnumerable<Sale> Valid { get { return Sales.Where(s => !s.Voided); } }
-
-        public static string[] Categories()
+        static int CompareByTime(Sale a, Sale b)
         {
-            return Products.Select(p => p.Category).Distinct().OrderBy(x => x).ToArray();
+            return a.Time.CompareTo(b.Time);
         }
 
-        // ---------- Sales ----------
+        static int CompareByUnits(ProductStat a, ProductStat b)
+        {
+            return b.Units.CompareTo(a.Units);   // biggest first
+        }
+
+        // ---------- selling ----------
+        // Returns the new Sale, or null with a message in "error".
+        // All checks come first; stock is only changed at the end.
         public static Sale CompleteSale(List<SaleLine> cart, double cash, string cashier, out string error)
         {
-            error = null;
-            if (cart.Count == 0) { error = "The order is empty."; return null; }
+            error = "";
 
-            foreach (var g in cart.GroupBy(l => l.P))
+            if (cart.Count == 0)
             {
-                int q = g.Sum(l => l.Qty);
-                if (!Products.Contains(g.Key)) { error = g.Key.Name + " is no longer available."; return null; }
-                if (q > g.Key.Stock) { error = "Not enough stock for " + g.Key.Name + " (only " + g.Key.Stock + " left)."; return null; }
+                error = "The order is empty.";
+                return null;
             }
 
-            double total = cart.Sum(l => l.Total);
-            if (cash < total) { error = "Cash received is less than the total."; return null; }
-
-            foreach (var l in cart) l.P.Stock -= l.Qty;
-
-            var sale = new Sale
+            foreach (SaleLine line in cart)
             {
-                No = nextNo++,
-                Time = DateTime.Now,
-                Total = total,
-                Cash = cash,
-                Change = cash - total,
-                Cashier = cashier,
-                Lines = cart.Select(l => new SaleLine { P = l.P, Name = l.Name, Qty = l.Qty, Price = l.Price }).ToList()
-            };
+                if (!Products.Contains(line.Item))
+                {
+                    error = line.Name + " is no longer available.";
+                    return null;
+                }
+
+                int wanted = 0;
+                foreach (SaleLine other in cart)
+                {
+                    if (other.Item == line.Item) wanted += other.Qty;
+                }
+                if (wanted > line.Item.Stock)
+                {
+                    error = "Not enough stock for " + line.Name + " (only " + line.Item.Stock + " left).";
+                    return null;
+                }
+            }
+
+            double total = 0;
+            foreach (SaleLine line in cart)
+            {
+                total += line.GetTotal();
+            }
+
+            if (cash < total)
+            {
+                error = "Cash received is less than the total.";
+                return null;
+            }
+
+            Sale sale = new Sale();
+            sale.No = nextNo;
+            nextNo++;
+            sale.Time = DateTime.Now;
+            sale.Total = total;
+            sale.Cash = cash;
+            sale.Change = cash - total;
+            sale.Cashier = cashier;
+
+            foreach (SaleLine line in cart)
+            {
+                line.Item.Stock -= line.Qty;
+
+                SaleLine copy = new SaleLine();
+                copy.Item = line.Item;
+                copy.Name = line.Name;
+                copy.Qty = line.Qty;
+                copy.Price = line.Price;
+                sale.Lines.Add(copy);
+            }
+
             Sales.Add(sale);
             return sale;
         }
 
-        public static void Void(Sale s)
+        // Cancels a sale: marks it voided and puts the stock back
+        public static void VoidSale(Sale s)
         {
             if (s.Voided) return;
+
             s.Voided = true;
-            foreach (var l in s.Lines)
-                if (Products.Contains(l.P)) l.P.Stock += l.Qty;
+            foreach (SaleLine line in s.Lines)
+            {
+                if (Products.Contains(line.Item)) line.Item.Stock += line.Qty;
+            }
         }
 
         public static Sale LastValidSale()
         {
-            return Sales.LastOrDefault(s => !s.Voided);
+            for (int i = Sales.Count - 1; i >= 0; i--)
+            {
+                if (!Sales[i].Voided) return Sales[i];
+            }
+            return null;
         }
 
-        // ---------- Analytics ----------
+        // ---------- products ----------
+        public static List<string> GetCategories()
+        {
+            List<string> list = new List<string>();
+            foreach (Product p in Products)
+            {
+                if (!list.Contains(p.Category)) list.Add(p.Category);
+            }
+            list.Sort();
+            return list;
+        }
+
+        public static int CountLowStock()
+        {
+            int n = 0;
+            foreach (Product p in Products)
+            {
+                if (p.Stock > 0 && p.Stock <= LowStockLevel) n++;
+            }
+            return n;
+        }
+
+        public static int CountOutOfStock()
+        {
+            int n = 0;
+            foreach (Product p in Products)
+            {
+                if (p.Stock == 0) n++;
+            }
+            return n;
+        }
+
+        // ---------- analytics ----------
         public static double RevenueOn(DateTime day)
         {
-            return Valid.Where(s => s.Time.Date == day.Date).Sum(s => s.Total);
+            double sum = 0;
+            foreach (Sale s in Sales)
+            {
+                if (!s.Voided && s.Time.Date == day.Date) sum += s.Total;
+            }
+            return sum;
         }
 
         public static int OrdersOn(DateTime day)
         {
-            return Valid.Count(s => s.Time.Date == day.Date);
+            int n = 0;
+            foreach (Sale s in Sales)
+            {
+                if (!s.Voided && s.Time.Date == day.Date) n++;
+            }
+            return n;
         }
 
-        public static double[] RevenueByDay(int days, out string[] labels)
+        // Revenue for each of the last "days" days (oldest first)
+        public static double[] RevenueLastDays(int days, out string[] labels)
         {
-            var v = new double[days];
+            double[] values = new double[days];
             labels = new string[days];
+
             for (int i = 0; i < days; i++)
             {
                 DateTime d = DateTime.Today.AddDays(i - (days - 1));
-                v[i] = RevenueOn(d);
+                values[i] = RevenueOn(d);
                 labels[i] = d.ToString("ddd");
             }
-            return v;
+            return values;
         }
 
-        static double[] HourBuckets(IEnumerable<Sale> sales, out string[] labels)
+        // Revenue per hour of the day (8 AM to 8 PM), all valid sales
+        public static double[] RevenueByHour(out string[] labels)
         {
-            int n = LastHour - FirstHour + 1;
-            var v = new double[n];
-            labels = new string[n];
-            for (int i = 0; i < n; i++)
+            double[] values = new double[13];
+            labels = new string[13];
+
+            for (int i = 0; i < 13; i++)
             {
-                int h = FirstHour + i;
-                labels[i] = (h % 12 == 0 ? 12 : h % 12) + (h < 12 ? "AM" : "PM");
+                int h = 8 + i;
+                int shown = h % 12;
+                if (shown == 0) shown = 12;
+                labels[i] = shown + (h < 12 ? " AM" : " PM");
             }
-            foreach (var s in sales)
+
+            foreach (Sale s in Sales)
             {
-                int h = Math.Min(Math.Max(s.Time.Hour, FirstHour), LastHour);
-                v[h - FirstHour] += s.Total;
+                if (s.Voided) continue;
+                int h = s.Time.Hour;
+                if (h < 8) h = 8;
+                if (h > 20) h = 20;
+                values[h - 8] += s.Total;
             }
-            return v;
-        }
-
-        public static double[] RevenueByHour(DateTime day, out string[] labels)
-        {
-            return HourBuckets(Valid.Where(s => s.Time.Date == day.Date), out labels);
-        }
-
-        public static double[] RevenueByHourAll(out string[] labels)
-        {
-            return HourBuckets(Valid, out labels);
+            return values;
         }
 
         public static List<ProductStat> TopProducts(int n)
         {
-            return Valid.SelectMany(s => s.Lines)
-                .GroupBy(l => l.P)
-                .Select(g => new ProductStat { P = g.Key, Name = g.Key.Name, Units = g.Sum(l => l.Qty), Revenue = g.Sum(l => l.Total) })
-                .OrderByDescending(x => x.Units)
-                .Take(n)
-                .ToList();
+            List<ProductStat> stats = new List<ProductStat>();
+
+            foreach (Sale s in Sales)
+            {
+                if (s.Voided) continue;
+
+                foreach (SaleLine line in s.Lines)
+                {
+                    ProductStat found = null;
+                    foreach (ProductStat st in stats)
+                    {
+                        if (st.Item == line.Item) found = st;
+                    }
+                    if (found == null)
+                    {
+                        found = new ProductStat();
+                        found.Item = line.Item;
+                        stats.Add(found);
+                    }
+                    found.Units += line.Qty;
+                    found.Revenue += line.GetTotal();
+                }
+            }
+
+            stats.Sort(CompareByUnits);
+            if (stats.Count > n) stats.RemoveRange(n, stats.Count - n);
+            return stats;
         }
 
-        public static List<KeyValuePair<string, double>> CategoryRevenue()
+        public static Dictionary<string, double> RevenueByCategory()
         {
-            return Valid.SelectMany(s => s.Lines)
-                .GroupBy(l => l.P.Category)
-                .Select(g => new KeyValuePair<string, double>(g.Key, g.Sum(l => l.Total)))
-                .OrderByDescending(k => k.Value)
-                .ToList();
+            Dictionary<string, double> result = new Dictionary<string, double>();
+
+            foreach (Sale s in Sales)
+            {
+                if (s.Voided) continue;
+
+                foreach (SaleLine line in s.Lines)
+                {
+                    string cat = line.Item.Category;
+                    if (!result.ContainsKey(cat)) result[cat] = 0;
+                    result[cat] += line.GetTotal();
+                }
+            }
+            return result;
         }
     }
 }
