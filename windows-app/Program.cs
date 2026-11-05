@@ -83,7 +83,7 @@ namespace SchoolSupplyPOS
         int editRow = -1;
 
         // screens
-        Panel pnlLanding, pnlPos, pnlManage;
+        Panel pnlLanding, pnlPos, pnlManage, pnlHistory;
 
         // POS screen controls
         Label lblRole, lblTotal, lblChange;
@@ -91,13 +91,16 @@ namespace SchoolSupplyPOS
         FlowLayoutPanel pnlTiles;
         ListBox lstCart;
         TextBox txtCash;
-        Button btnManage;
+        Button btnManage, btnHistory;
 
         // Manage screen controls
         DataGridView dgvProducts;
         TextBox txtName, txtPrice, txtStock, txtReceipt;
         ComboBox cboCat;
+        // Transactions screen controls
         ListBox lstSales;
+        ComboBox cboFilter;
+        Label lblStatus;
 
         public frmMain()
         {
@@ -112,6 +115,7 @@ namespace SchoolSupplyPOS
             BuildLanding();
             BuildPos();
             BuildManage();
+            BuildHistory();
             ShowScreen(pnlLanding);
         }
 
@@ -182,6 +186,7 @@ namespace SchoolSupplyPOS
             pnlLanding.Visible = false;
             pnlPos.Visible = false;
             pnlManage.Visible = false;
+            pnlHistory.Visible = false;
             screen.Visible = true;
         }
 
@@ -218,7 +223,8 @@ namespace SchoolSupplyPOS
         {
             lblRole.Text = manager ? "Manager" : "Staff";
             btnManage.Visible = manager;
-            lblRole.Left = manager ? 560 : 700;   // Staff has no Manage button, so the name moves right
+            btnHistory.Left = manager ? 670 : 810;   // Staff has no Manage button, so Transactions takes its place
+            lblRole.Left = manager ? 420 : 560;
             cart.Clear();
             category = "All";
             txtCash.Text = "";
@@ -237,6 +243,7 @@ namespace SchoolSupplyPOS
             MakeLabel(bar, "SchoolPOS", 20, 12, 220, 40, 20, true, Color.White);
             lblRole = MakeLabel(bar, "", 560, 18, 240, 28, 12, true, Color.White);
             lblRole.TextAlign = ContentAlignment.MiddleRight;
+            btnHistory = MakeButton(bar, "Transactions", 810, 14, 130, 36, Color.White, Red, btnHistory_Click);
             btnManage = MakeButton(bar, "Manage store", 810, 14, 130, 36, Color.White, Red, btnManage_Click);
             MakeButton(bar, "Logout", 950, 14, 130, 36, Color.FromArgb(153, 27, 27), Color.White, btnLogout_Click);
 
@@ -535,7 +542,7 @@ namespace SchoolSupplyPOS
 
             MakeLabel(pnlManage, "Products", 20, 76, 300, 28, 13, true, Dark);
             dgvProducts = new DataGridView();
-            dgvProducts.Location = new Point(20, 108); dgvProducts.Size = new Size(540, 320);
+            dgvProducts.Location = new Point(20, 108); dgvProducts.Size = new Size(1060, 320);
             dgvProducts.ReadOnly = true;
             dgvProducts.AllowUserToAddRows = false;
             dgvProducts.RowHeadersVisible = false;
@@ -549,36 +556,22 @@ namespace SchoolSupplyPOS
             dgvProducts.CellClick += dgvProducts_CellClick;
             pnlManage.Controls.Add(dgvProducts);
 
-            MakeLabel(pnlManage, "Name", 20, 446, 150, 22, 10, false, Grey);
-            MakeLabel(pnlManage, "Category", 200, 446, 120, 22, 10, false, Grey);
-            MakeLabel(pnlManage, "Price", 350, 446, 80, 22, 10, false, Grey);
-            MakeLabel(pnlManage, "Stock", 450, 446, 80, 22, 10, false, Grey);
-            txtName = MakeBox(pnlManage, 20, 470, 170, 11);
+            MakeLabel(pnlManage, "Name", 20, 446, 250, 22, 10, false, Grey);
+            MakeLabel(pnlManage, "Category", 300, 446, 120, 22, 10, false, Grey);
+            MakeLabel(pnlManage, "Price", 500, 446, 80, 22, 10, false, Grey);
+            MakeLabel(pnlManage, "Stock", 620, 446, 80, 22, 10, false, Grey);
+            txtName = MakeBox(pnlManage, 20, 470, 270, 11);
             cboCat = new ComboBox();
-            cboCat.Location = new Point(200, 470); cboCat.Width = 140;
+            cboCat.Location = new Point(300, 470); cboCat.Width = 190;
             cboCat.Font = new Font("Segoe UI", 11);
             pnlManage.Controls.Add(cboCat);
-            txtPrice = MakeBox(pnlManage, 350, 470, 90, 11);
-            txtStock = MakeBox(pnlManage, 450, 470, 90, 11);
+            txtPrice = MakeBox(pnlManage, 500, 470, 110, 11);
+            txtStock = MakeBox(pnlManage, 620, 470, 110, 11);
 
-            MakeButton(pnlManage, "Add item", 20, 520, 170, 42, Blue, Color.White, btnAddProduct_Click);
-            MakeButton(pnlManage, "Update selected", 200, 520, 170, 42, Dark, Color.White, btnUpdateProduct_Click);
-            MakeButton(pnlManage, "Remove selected", 380, 520, 170, 42, Red, Color.White, btnRemoveProduct_Click);
+            MakeButton(pnlManage, "Add item", 20, 520, 200, 42, Blue, Color.White, btnAddProduct_Click);
+            MakeButton(pnlManage, "Update selected", 230, 520, 200, 42, Dark, Color.White, btnUpdateProduct_Click);
+            MakeButton(pnlManage, "Remove selected", 440, 520, 200, 42, Red, Color.White, btnRemoveProduct_Click);
 
-            MakeLabel(pnlManage, "Sales log (newest first)", 590, 76, 400, 28, 13, true, Dark);
-            lstSales = new ListBox();
-            lstSales.Location = new Point(590, 108); lstSales.Size = new Size(490, 190);
-            lstSales.Font = new Font("Consolas", 11);
-            lstSales.SelectedIndexChanged += lstSales_SelectedIndexChanged;
-            pnlManage.Controls.Add(lstSales);
-
-            txtReceipt = new TextBox();
-            txtReceipt.Multiline = true; txtReceipt.ReadOnly = true;
-            txtReceipt.Font = new Font("Consolas", 10);
-            txtReceipt.Location = new Point(590, 308); txtReceipt.Size = new Size(490, 296);
-            pnlManage.Controls.Add(txtReceipt);
-
-            MakeButton(pnlManage, "Void selected sale", 590, 616, 220, 42, Red, Color.White, btnVoidSel_Click);
         }
 
         void btnBack_Click(object sender, EventArgs e)
@@ -599,9 +592,6 @@ namespace SchoolSupplyPOS
             foreach (Product p in products)
                 if (!cboCat.Items.Contains(p.Category)) cboCat.Items.Add(p.Category);
 
-            lstSales.Items.Clear();
-            for (int i = sales.Count - 1; i >= 0; i--) lstSales.Items.Add(sales[i]);
-            txtReceipt.Text = "";
             ClearFields();
         }
 
@@ -679,10 +669,93 @@ namespace SchoolSupplyPOS
             RefreshManage();
         }
 
-        void lstSales_SelectedIndexChanged(object sender, EventArgs e)
+        // ===== Screen 4: transactions (Manager and Staff) =====
+        void BuildHistory()
+        {
+            pnlHistory = MakePanel(this, 0, 0, 1100, 680, Light);
+
+            Panel bar = MakePanel(pnlHistory, 0, 0, 1100, 64, Red);
+            MakeLabel(bar, "Transactions", 20, 12, 300, 40, 20, true, Color.White);
+            MakeButton(bar, "Back to register", 920, 14, 160, 36, Color.White, Red, btnHistBack_Click);
+
+            MakeLabel(pnlHistory, "Past sales (newest first)", 20, 76, 300, 28, 13, true, Dark);
+            cboFilter = new ComboBox();
+            cboFilter.Location = new Point(400, 76); cboFilter.Width = 180;
+            cboFilter.DropDownStyle = ComboBoxStyle.DropDownList;
+            cboFilter.Font = new Font("Segoe UI", 11);
+            cboFilter.Items.Add("All sales");
+            cboFilter.Items.Add("Completed only");
+            cboFilter.Items.Add("Voided only");
+            cboFilter.SelectedIndex = 0;
+            cboFilter.SelectedIndexChanged += cboFilter_SelectedIndexChanged;
+            pnlHistory.Controls.Add(cboFilter);
+
+            lstSales = new ListBox();
+            lstSales.Location = new Point(20, 112); lstSales.Size = new Size(560, 548);
+            lstSales.Font = new Font("Consolas", 12);
+            lstSales.ItemHeight = 24;
+            lstSales.SelectedIndexChanged += lstSales_SelectedIndexChanged;
+            pnlHistory.Controls.Add(lstSales);
+
+            MakeLabel(pnlHistory, "Receipt", 610, 76, 200, 28, 13, true, Dark);
+            lblStatus = MakeLabel(pnlHistory, "", 840, 76, 240, 28, 12, true, Grey);
+            lblStatus.TextAlign = ContentAlignment.MiddleRight;
+
+            txtReceipt = new TextBox();
+            txtReceipt.Multiline = true; txtReceipt.ReadOnly = true; txtReceipt.TabStop = false;
+            txtReceipt.Font = new Font("Consolas", 10);
+            txtReceipt.Location = new Point(610, 112); txtReceipt.Size = new Size(470, 420);
+            pnlHistory.Controls.Add(txtReceipt);
+
+            MakeButton(pnlHistory, "Void this sale", 610, 548, 230, 52, Red, Color.White, btnVoidSel_Click);
+            MakeButton(pnlHistory, "Reprint", 850, 548, 230, 52, Dark, Color.White, btnHistReprint_Click);
+            MakeLabel(pnlHistory, "Voiding puts the items back in stock.", 610, 612, 470, 26, 10, false, Grey);
+        }
+
+        void btnHistory_Click(object sender, EventArgs e)
+        {
+            RefreshHistory(null);
+            ShowScreen(pnlHistory);
+        }
+
+        void btnHistBack_Click(object sender, EventArgs e)
+        {
+            RefreshTiles();
+            ShowScreen(pnlPos);
+        }
+
+        void cboFilter_SelectedIndexChanged(object sender, EventArgs e) { RefreshHistory(null); }
+
+        // fills the list using the filter; keeps the given sale selected if it is still shown
+        void RefreshHistory(Sale keep)
+        {
+            lstSales.Items.Clear();
+            for (int i = sales.Count - 1; i >= 0; i--)
+            {
+                Sale s = sales[i];
+                if (cboFilter.SelectedIndex == 1 && s.Voided) continue;
+                if (cboFilter.SelectedIndex == 2 && !s.Voided) continue;
+                lstSales.Items.Add(s);
+            }
+            if (keep != null && lstSales.Items.Contains(keep)) lstSales.SelectedItem = keep;
+            else ShowSelectedSale();
+        }
+
+        void lstSales_SelectedIndexChanged(object sender, EventArgs e) { ShowSelectedSale(); }
+
+        void ShowSelectedSale()
         {
             Sale s = lstSales.SelectedItem as Sale;
-            txtReceipt.Text = (s == null) ? "" : s.Receipt();
+            if (s == null)
+            {
+                txtReceipt.Text = "";
+                lblStatus.Text = lstSales.Items.Count == 0 ? "No sales to show" : "Select a sale";
+                lblStatus.ForeColor = Grey;
+                return;
+            }
+            txtReceipt.Text = s.Receipt();
+            lblStatus.Text = s.Voided ? "VOIDED" : "Completed";
+            lblStatus.ForeColor = s.Voided ? Red : Green;
         }
 
         void btnVoidSel_Click(object sender, EventArgs e)
@@ -690,10 +763,17 @@ namespace SchoolSupplyPOS
             Sale s = lstSales.SelectedItem as Sale;
             if (s == null) { MessageBox.Show("Select a sale first."); return; }
             if (s.Voided) { MessageBox.Show("That sale is already voided."); return; }
-            DialogResult r = MessageBox.Show("Void receipt #" + s.No + "?", "Void sale", MessageBoxButtons.YesNo);
+            DialogResult r = MessageBox.Show("Void receipt #" + s.No + " (P" + s.Total.ToString("F2") + ")?\nThe items will go back in stock.", "Void sale", MessageBoxButtons.YesNo);
             if (r != DialogResult.Yes) return;
             VoidSale(s);
-            RefreshManage();
+            RefreshHistory(s);
+        }
+
+        void btnHistReprint_Click(object sender, EventArgs e)
+        {
+            Sale s = lstSales.SelectedItem as Sale;
+            if (s == null) { MessageBox.Show("Select a sale first."); return; }
+            ShowReceipt(s.Receipt());
         }
     }
 
