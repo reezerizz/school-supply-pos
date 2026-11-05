@@ -81,6 +81,8 @@ namespace SchoolSupplyPOS
         int saleNo = 100;
         string category = "All";
         int editRow = -1;
+        bool isManager = false;
+        const string ManagerCode = "123";   // temporary code Staff must enter to void
 
         // screens
         Panel pnlLanding, pnlPos, pnlManage, pnlHistory;
@@ -222,6 +224,7 @@ namespace SchoolSupplyPOS
         void StartSession(bool manager)
         {
             lblRole.Text = manager ? "Manager" : "Staff";
+            isManager = manager;
             btnManage.Visible = manager;
             btnHistory.Left = manager ? 670 : 810;   // Staff has no Manage button, so Transactions takes its place
             lblRole.Left = manager ? 420 : 560;
@@ -489,6 +492,7 @@ namespace SchoolSupplyPOS
             if (s == null) { MessageBox.Show("There is no sale to void."); return; }
             DialogResult r = MessageBox.Show("Void receipt #" + s.No + " (P" + s.Total.ToString("F2") + ")?", "Void last sale", MessageBoxButtons.YesNo);
             if (r != DialogResult.Yes) return;
+            if (!ManagerApproved()) return;
             VoidSale(s);
             RefreshTiles();
         }
@@ -498,6 +502,39 @@ namespace SchoolSupplyPOS
             Sale s = LastValidSale();
             if (s == null) { MessageBox.Show("There is no receipt to print."); return; }
             ShowReceipt(s.Receipt());
+        }
+
+        // Managers pass straight through. Staff must type the manager code.
+        bool ManagerApproved()
+        {
+            if (isManager) return true;
+
+            Form f = new Form();
+            f.Text = "Manager approval";
+            f.ClientSize = new Size(360, 190);
+            f.StartPosition = FormStartPosition.CenterParent;
+            f.FormBorderStyle = FormBorderStyle.FixedDialog;
+            f.MaximizeBox = false; f.MinimizeBox = false;
+
+            MakeLabel(f, "Manager approval needed", 20, 16, 320, 28, 13, true, Dark);
+            MakeLabel(f, "Ask your manager to enter the code.", 20, 46, 320, 24, 10, false, Grey);
+            TextBox code = MakeBox(f, 20, 80, 320, 14);
+            code.UseSystemPasswordChar = true;
+
+            Button ok = MakeButton(f, "Approve", 20, 128, 150, 42, Red, Color.White, null);
+            ok.DialogResult = DialogResult.OK;
+            Button cancel = MakeButton(f, "Cancel", 190, 128, 150, 42, Light, Dark, null);
+            cancel.DialogResult = DialogResult.Cancel;
+            f.AcceptButton = ok;
+            f.CancelButton = cancel;
+
+            if (f.ShowDialog() != DialogResult.OK) return false;
+            if (code.Text != ManagerCode)
+            {
+                MessageBox.Show("Wrong code. Nothing was voided.", "Access denied");
+                return false;
+            }
+            return true;
         }
 
         void ShowReceipt(string text)
@@ -765,6 +802,7 @@ namespace SchoolSupplyPOS
             if (s.Voided) { MessageBox.Show("That sale is already voided."); return; }
             DialogResult r = MessageBox.Show("Void receipt #" + s.No + " (P" + s.Total.ToString("F2") + ")?\nThe items will go back in stock.", "Void sale", MessageBoxButtons.YesNo);
             if (r != DialogResult.Yes) return;
+            if (!ManagerApproved()) return;
             VoidSale(s);
             RefreshHistory(s);
         }
