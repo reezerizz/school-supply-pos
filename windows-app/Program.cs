@@ -218,6 +218,7 @@ namespace SchoolSupplyPOS
         {
             lblRole.Text = manager ? "Manager" : "Staff";
             btnManage.Visible = manager;
+            lblRole.Left = manager ? 560 : 700;   // Staff has no Manage button, so the name moves right
             cart.Clear();
             category = "All";
             txtCash.Text = "";
